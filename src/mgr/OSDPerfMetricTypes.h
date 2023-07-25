@@ -6,6 +6,7 @@
 
 #include "include/denc.h"
 #include "include/stringify.h"
+#include "common/Formatter.h"
 
 #include "mgr/Types.h"
 
@@ -69,6 +70,10 @@ struct OSDPerfMetricSubKeyDescriptor {
     denc(v.type, p);
     denc(v.regex_str, p);
     DENC_FINISH(p);
+  }
+  void dump(ceph::Formatter *f) const {
+    f->dump_unsigned("type", static_cast<uint8_t>(type));
+    f->dump_string("regex", regex_str);
   }
 };
 WRITE_CLASS_DENC(OSDPerfMetricSubKeyDescriptor)
@@ -183,7 +188,9 @@ struct PerformanceCounterDescriptor {
     denc(v.type, p);
     DENC_FINISH(p);
   }
-
+  void dump(ceph::Formatter *f) const {
+    f->dump_unsigned("type", static_cast<uint8_t>(type));
+  }
   void pack_counter(const PerformanceCounter &c, ceph::buffer::list *bl) const;
   void unpack_counter(ceph::buffer::list::const_iterator& bl,
                       PerformanceCounter *c) const;
@@ -305,7 +312,18 @@ struct OSDPerfMetricQuery {
     denc(v.performance_counter_descriptors, p);
     DENC_FINISH(p);
   }
-
+  void dump(ceph::Formatter *f) const {
+    f->open_array_section("key_descriptor");
+    for (auto &descriptor : key_descriptor) {
+      f->dump_object("sub_key_descriptor", descriptor);
+    }
+    f->close_section();
+    f->open_array_section("performance_counter_descriptors");
+    for (auto &descriptor : performance_counter_descriptors) {
+      f->dump_object("performance_counter_descriptor", descriptor);
+    }
+    f->close_section();
+  }
   void get_performance_counter_descriptors(
       PerformanceCounterDescriptors *descriptors) const {
     *descriptors = performance_counter_descriptors;
@@ -352,6 +370,23 @@ struct OSDPerfMetricReport {
     denc(v.performance_counter_descriptors, p);
     denc(v.group_packed_performance_counters, p);
     DENC_FINISH(p);
+  }
+  void dump(ceph::Formatter *f) const {
+    for (auto &descriptor : performance_counter_descriptors) {
+      f->dump_object("performance_counter_descriptor", descriptor);
+    }
+    f->open_array_section("group_packed_performance_counters");
+    for (auto &i : group_packed_performance_counters) {
+      f->open_object_section("group");
+      for (auto &metric : i.first) {
+        for (auto &sub_key_descriptor : metric) {
+          f->dump_string("sub_key_descriptor", sub_key_descriptor);
+        }
+      }
+      f->close_section();
+      f->dump_int("length", i.second.length());
+    }
+    f->close_section();
   }
 };
 WRITE_CLASS_DENC(OSDPerfMetricReport)

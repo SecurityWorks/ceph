@@ -573,7 +573,6 @@ public:
   }
 
   static void generate_test_instances(std::list<SessionMapStore*>& ls);
-
   void reset_state()
   {
     session_map.clear();
